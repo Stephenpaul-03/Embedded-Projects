@@ -1,21 +1,59 @@
-int soilMoisturePin = A7; // Analog pin for the soil moisture sensor
-int relayPin = 2;        // Digital pin to control the relay
-int moistureThreshold = 800; // Adjust this threshold according to your sensor
-int hysteresis = 50;       // Hysteresis range to prevent rapid cycling
+int soilMoisturePin = A7;  
+int relayPin = 2;         
+int ledDry = 3;           
+int ledWet = 4;           
+
+int moistureThreshold = 800; 
+int hysteresis = 50;         
+unsigned long maxPumpTime = 60000; 
+unsigned long pumpStartTime = 0;
+
+bool isPumpOn = false;
 
 void setup() {
   pinMode(relayPin, OUTPUT);
   pinMode(soilMoisturePin, INPUT);
+  pinMode(ledDry, OUTPUT);
+  pinMode(ledWet, OUTPUT);
+
+  digitalWrite(relayPin, LOW); 
+  Serial.begin(9600); 
 }
 
 void loop() {
   int soilMoisture = analogRead(soilMoisturePin);
 
+  Serial.print("Soil Moisture Level: ");
+  Serial.println(soilMoisture);
+  Serial.print("Pump Status: ");
+  Serial.println(isPumpOn ? "ON" : "OFF");
+
   if (soilMoisture < moistureThreshold - hysteresis) {
-    digitalWrite(relayPin, HIGH); // Soil is dry, turn on the pump
+    if (!isPumpOn) {
+      digitalWrite(relayPin, HIGH); 
+      isPumpOn = true;
+      pumpStartTime = millis(); 
+      digitalWrite(ledDry, HIGH);
+      digitalWrite(ledWet, LOW);
+      Serial.println("Pump turned ON.");
+    }
   } else if (soilMoisture >= moistureThreshold) {
-    digitalWrite(relayPin, LOW);  // Soil is wet, turn off the pump
+    if (isPumpOn) {
+      digitalWrite(relayPin, LOW); 
+      isPumpOn = false;
+      digitalWrite(ledDry, LOW);
+      digitalWrite(ledWet, HIGH);
+      Serial.println("Pump turned OFF.");
+    }
   }
 
-  delay(1000); // Delay for 1 second before checking again (adjust as needed)
+  if (isPumpOn && millis() - pumpStartTime > maxPumpTime) {
+    digitalWrite(relayPin, LOW); 
+    isPumpOn = false;
+    digitalWrite(ledDry, LOW);
+    digitalWrite(ledWet, HIGH);
+    Serial.println("Pump stopped due to maximum runtime.");
+  }
+
+  delay(1000); 
 }
